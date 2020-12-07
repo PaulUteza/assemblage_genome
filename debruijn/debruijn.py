@@ -16,21 +16,22 @@
 import argparse
 import os
 import sys
+import re
+from operator import itemgetter
+import statistics
+from random import randint
+import random
 import networkx as nx
 import matplotlib
-from operator import itemgetter
-import random
 random.seed(9001)
-from random import randint
-import statistics
 
-__author__ = "Your Name"
-__copyright__ = "Universite Paris Diderot"
-__credits__ = ["Your Name"]
+__author__ = "UTEZA Paul"
+__copyright__ = "CY TECH"
+__credits__ = ["UTEZA Paul"]
 __license__ = "GPL"
 __version__ = "1.0.0"
-__maintainer__ = "Your Name"
-__email__ = "your@email.fr"
+__maintainer__ = "UTEZA Paul"
+__email__ = "utezapaul@eisti.eu"
 __status__ = "Developpement"
 
 def isfile(path):
@@ -66,20 +67,38 @@ def get_arguments():
 
 
 def read_fastq(fastq_file):
-    pass
+    with open(fastq_file, 'rt') as file:
+        for _ in file:
+            yield next(file).strip()
+            next(file)
+            next(file)
 
 
 def cut_kmer(read, kmer_size):
-    pass
+    for i in range(len(read)-kmer_size+1):
+        yield read[i:kmer_size+i]
 
 
 def build_kmer_dict(fastq_file, kmer_size):
-    pass
+    reads = read_fastq(fastq_file)
+    kmer_dict = {}
+    for read in reads:
+        kmers = cut_kmer(read, kmer_size)
+        for kmer in kmers:
+            if kmer in kmer_dict.keys():
+                continue
+            else:
+                # Find and count all overlapping matches
+                kmer_dict[kmer] = len(re.findall('(?={})'.format(re.escape(kmer)), read))
+    return kmer_dict
 
 
 def build_graph(kmer_dict):
-    pass
-
+    kmer_cut_dict = {}
+    for kmer in kmer_dict.keys():
+        kmer_cut_dict[kmer[:-1]] = {kmer[1:]: {'weight': kmer_dict[kmer]}}
+    graph = nx.DiGraph(kmer_cut_dict)
+    return graph
 
 def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
     pass
@@ -88,7 +107,7 @@ def std(data):
     pass
 
 
-def select_best_path(graph, path_list, path_length, weight_avg_list, 
+def select_best_path(graph, path_list, path_length, weight_avg_list,
                      delete_entry_node=False, delete_sink_node=False):
     pass
 
@@ -128,6 +147,9 @@ def main():
     """
     # Get arguments
     args = get_arguments()
+
+
+
 
 if __name__ == '__main__':
     main()
