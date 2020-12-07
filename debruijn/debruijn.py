@@ -94,10 +94,11 @@ def build_kmer_dict(fastq_file, kmer_size):
 
 
 def build_graph(kmer_dict):
-    kmer_cut_dict = {}
+    graph = nx.DiGraph()
     for kmer in kmer_dict.keys():
-        kmer_cut_dict[kmer[:-1]] = {kmer[1:]: {'weight': kmer_dict[kmer]}}
-    graph = nx.DiGraph(kmer_cut_dict)
+        graph.add_edge(kmer[:-1], kmer[1:], weight=kmer_dict[kmer])
+
+
     return graph
 
 def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
@@ -105,7 +106,6 @@ def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
 
 def std(data):
     pass
-
 
 def select_best_path(graph, path_list, path_length, weight_avg_list,
                      delete_entry_node=False, delete_sink_node=False):
@@ -127,16 +127,55 @@ def solve_out_tips(graph, ending_nodes):
     pass
 
 def get_starting_nodes(graph):
-    pass
+    nodes = graph.nodes()
+    starting_nodes = []
+    for node in nodes:
+        if list(nx.edge_dfs(graph, node, orientation='reverse')):
+            continue
+        else:
+            starting_nodes.append(node)
+    return starting_nodes
+
 
 def get_sink_nodes(graph):
-    pass
+    nodes = graph.nodes()
+    sink_nodes = []
+    for node in nodes:
+        if list(nx.dfs_edges(graph, node)):
+            continue
+        else:
+            sink_nodes.append(node)
+    return sink_nodes
+
 
 def get_contigs(graph, starting_nodes, ending_nodes):
-    pass
+    contigs = []
+    for starting_node in starting_nodes:
+        for ending_node in ending_nodes:
+            for path in nx.all_simple_paths(graph, source=starting_node, target=ending_node):
+                full_path = path[0]
+                for node in path[1:]:
+                    full_path += node[1:]
+                contigs.append((full_path, len(full_path)))
+    return contigs
+
+
+def fill(text, width=80):
+    """Split text with a line return to respect fasta format"""
+    return os.linesep.join(text[i:i + width] for i in range(0, len(text), width))
+
 
 def save_contigs(contigs_list, output_file):
-    pass
+    with open(output_file, 'wt') as file:
+        for index, contig in enumerate(contigs_list):
+            if index == 0 :
+                file.write('>contig_{0} len={1}\n'.format(index, contig[1]))
+            else:
+                file.write('\n>contig_{0} len={1}\n'.format(index, contig[1]))
+
+            seq = fill(contig[0])
+            file.write(seq)
+
 
 #==============================================================
 # Main program
@@ -148,6 +187,17 @@ def main():
     # Get arguments
     args = get_arguments()
 
+    # Create graph
+    reads = read_fastq(args.fastq_file)
+    kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
+    graph = build_graph(kmer_dict)
+
+
+    # Get and save contigs
+    starting_nodes = get_starting_nodes(graph)
+    ending_nodes = get_sink_nodes(graph)
+    contigs_list = get_contigs(graph, starting_nodes, ending_nodes)
+    save_contigs(contigs_list, args.output_file)
 
 
 
