@@ -19,6 +19,7 @@ import sys
 import re
 from operator import itemgetter
 import statistics
+from collections import Counter
 from random import randint
 import random
 import networkx as nx
@@ -97,28 +98,90 @@ def build_graph(kmer_dict):
     graph = nx.DiGraph()
     for kmer in kmer_dict.keys():
         graph.add_edge(kmer[:-1], kmer[1:], weight=kmer_dict[kmer])
-
-
     return graph
 
+
 def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
-    pass
+    for path in path_list:
+        path = list(path)
+        for index, node in enumerate(path):
+            if index == 0:
+                if delete_entry_node:
+                    graph.remove_node(node)
+                else:
+                    continue
+            elif index == len(path)-1:
+                if delete_sink_node:
+                    graph.remove_node(node)
+                else:
+                    continue
+            else:
+                graph.remove_node(node)
+    return graph
+
 
 def std(data):
-    pass
+    return statistics.stdev(data)
+
 
 def select_best_path(graph, path_list, path_length, weight_avg_list,
                      delete_entry_node=False, delete_sink_node=False):
-    pass
+    max_weight = max(weight_avg_list)
+    max_weight_idx = [i for i, j in enumerate(weight_avg_list) if j == max_weight]
+    if len(max_weight_idx) == 1:
+        path_list.pop(max_weight_idx[0])
+        graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
+    else:
+        max_length = max(path_length)
+        max_length_idx = [i for i, j in enumerate(path_length) if j == max_length]
+        if len(max_length_idx) == 1:
+            path_list.pop(max_length_idx[0])
+            graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
+        else:
+            random_index = randint(0, len(path_list)-1)
+            path_list.pop(random_index)
+            graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
+    return graph
+
 
 def path_average_weight(graph, path):
-    pass
+    weight_list = []
+    for i in range(len(path)-1):
+        weight_list.append(graph[path[i]][path[i+1]]['weight'])
+    return statistics.mean(weight_list)
+
 
 def solve_bubble(graph, ancestor_node, descendant_node):
-    pass
+    paths = nx.all_simple_paths(graph, ancestor_node, descendant_node)
+    path_list = []
+    average_weight_list = []
+    path_length = []
+    for path in paths:
+        path_list.append(tuple(path))
+        average_weight_list.append(path_average_weight(graph, path))
+        path_length.append(len(path))
+    graph = select_best_path(graph, path_list, path_length, average_weight_list,
+                             delete_entry_node=False, delete_sink_node=False)
+    return graph
+
 
 def simplify_bubbles(graph):
-    pass
+    nodes = graph.nodes
+    bubbles = []
+    for node in nodes:
+        predecessors = graph.predecessors(node)
+        pred = []
+        for predecessor in predecessors:
+            predecessors_of_predecessors = graph.predecessors(predecessor)
+            for predecessor_of_predecessors in predecessors_of_predecessors:
+                pred.append(predecessor_of_predecessors)
+            counter = Counter(pred)
+            for node_pred in counter.keys():
+                if counter[node_pred] > 1:
+                    bubbles.append((node_pred, node))
+    for bubble in bubbles:
+        graph = solve_bubble(graph, bubble[0], bubble[1])
+    return graph
 
 def solve_entry_tips(graph, starting_nodes):
     pass
@@ -168,7 +231,7 @@ def fill(text, width=80):
 def save_contigs(contigs_list, output_file):
     with open(output_file, 'wt') as file:
         for index, contig in enumerate(contigs_list):
-            if index == 0 :
+            if index == 0:
                 file.write('>contig_{0} len={1}\n'.format(index, contig[1]))
             else:
                 file.write('\n>contig_{0} len={1}\n'.format(index, contig[1]))
@@ -188,16 +251,15 @@ def main():
     args = get_arguments()
 
     # Create graph
-    reads = read_fastq(args.fastq_file)
     kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
     graph = build_graph(kmer_dict)
-
 
     # Get and save contigs
     starting_nodes = get_starting_nodes(graph)
     ending_nodes = get_sink_nodes(graph)
     contigs_list = get_contigs(graph, starting_nodes, ending_nodes)
     save_contigs(contigs_list, args.output_file)
+
 
 
 
