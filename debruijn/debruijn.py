@@ -174,16 +174,19 @@ def select_best_path(graph, path_list, path_length, weight_avg_list,
     """
     max_weight = max(weight_avg_list)
     max_weight_idx = [i for i, j in enumerate(weight_avg_list) if j == max_weight]
+    # Check if only one path has the maximum weight
     if len(max_weight_idx) == 1:
         path_list.pop(max_weight_idx[0])
         graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
     else:
         max_length = max(path_length)
         max_length_idx = [i for i, j in enumerate(path_length) if j == max_length]
+        # Check if only one path has the maximum length
         if len(max_length_idx) == 1:
             path_list.pop(max_length_idx[0])
             graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
         else:
+            # Choose randomly
             random_index = randint(0, len(path_list)-1)
             path_list.pop(random_index)
             graph = remove_paths(graph, path_list, delete_entry_node, delete_sink_node)
@@ -211,10 +214,12 @@ def solve_bubble(graph, ancestor_node, descendant_node):
     :param descendant_node: Descendant node
     :return: Graph without the bubbles
     """
+    # Get all paths
     paths = nx.all_simple_paths(graph, ancestor_node, descendant_node)
     path_list = []
     average_weight_list = []
     path_length = []
+    # Create lists with all relevant informations about the paths
     for path in paths:
         path_list.append(tuple(path))
         average_weight_list.append(path_average_weight(graph, path))
@@ -254,6 +259,7 @@ def solve_entry_tips(graph, starting_nodes):
     :param starting_nodes: Entry nodes
     :return: Graph with no bad entry nodes
     """
+    # Get all paths from starting_nodes to sink nodes
     paths = []
     for node in starting_nodes:
         for sink in get_sink_nodes(graph):
@@ -262,12 +268,17 @@ def solve_entry_tips(graph, starting_nodes):
     for path_gen in paths:
         for path in path_gen:
             all_paths.append(path)
+    # Get all tips by removing shared nodes
     counts = Counter(chain(*map(set, all_paths)))
     tips = [[i for i in sublist if counts[i] == 1] for sublist in all_paths]
+    # Get longest tip
     longest_path = [x for x in tips if len(x) == max(map(len, tips))]
-    if len(longest_path) == 1:
-        graph.remove_nodes_from([x for x in tips if x not in longest_path][0])
-    else:
+    # Remove tips shorter than longest tip
+    if [x for x in tips if x not in longest_path]:
+        for to_remove in [x for x in tips if x not in longest_path]:
+            graph.remove_nodes_from(to_remove)
+    # If length tied, removing based on weight
+    if len(longest_path) > 1:
         weight_list = []
         for index, path in enumerate(tips):
             path.append(all_paths[index][len(path)])
@@ -295,9 +306,12 @@ def solve_out_tips(graph, ending_nodes):
     counts = Counter(chain(*map(set, all_paths)))
     tips = [[i for i in sublist if counts[i] == 1] for sublist in all_paths]
     longest_path = [x for x in tips if len(x) == max(map(len, tips))]
-    if len(longest_path) == 1:
-        graph.remove_nodes_from([x for x in tips if x not in longest_path][0])
-    else:
+    # Remove tips shorter than longest tip
+    if [x for x in tips if x not in longest_path]:
+        for to_remove in [x for x in tips if x not in longest_path]:
+            graph.remove_nodes_from(to_remove)
+    # If length tied, removing based on weight
+    if len(longest_path) > 1:
         weight_list = []
         for index, path in enumerate(tips):
             path.append(all_paths[index][-len(path)-1])
@@ -397,10 +411,11 @@ def main():
     graph = simplify_bubbles(graph)
 
     # Solve tips
-    print('Solving tips ...')
     starting_nodes = get_starting_nodes(graph)
     ending_nodes = get_sink_nodes(graph)
+    print('Solving entry tips ...')
     graph = solve_entry_tips(graph, starting_nodes)
+    print('Solving out tips ...')
     graph = solve_out_tips(graph, ending_nodes)
 
     # Get and save contigs
