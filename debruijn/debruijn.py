@@ -372,13 +372,9 @@ def save_contigs(contigs_list, output_file):
     """
     with open(output_file, 'wt') as file:
         for index, contig in enumerate(contigs_list):
-            if index == 0:
-                file.write('>contig_{0} len={1}\n'.format(index, contig[1]))
-            else:
-                file.write('\n>contig_{0} len={1}\n'.format(index, contig[1]))
-
+            file.write('>contig_{0} len={1}\n'.format(index, contig[1]))
             seq = fill(contig[0])
-            file.write(seq)
+            file.write(seq+'\n')
 
 
 #==============================================================
@@ -392,21 +388,26 @@ def main():
     args = get_arguments()
 
     # Create graph
+    print('Creating the graph ...')
     kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
     graph = build_graph(kmer_dict)
 
     # Solve bubbles
+    print('Solving bubbles ...')
     graph = simplify_bubbles(graph)
 
     # Solve tips
+    print('Solving tips ...')
     starting_nodes = get_starting_nodes(graph)
     ending_nodes = get_sink_nodes(graph)
     graph = solve_entry_tips(graph, starting_nodes)
     graph = solve_out_tips(graph, ending_nodes)
 
     # Get and save contigs
+    print('Saving contigs ...')
     contigs_list = get_contigs(graph, starting_nodes, ending_nodes)
     save_contigs(contigs_list, args.output_file)
+    print('Done')
 
 
 
